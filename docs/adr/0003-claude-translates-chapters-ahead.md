@@ -1,0 +1,3 @@
+# Claude translates whole Chapters ahead of reading, and results are cached
+
+Translations, Glosses and Explanations come from Claude rather than a machine-translation API (DeepL, Google), because only an LLM can Gloss a word as it is used in its Sentence and explain grammar in the Reader's Native language, and a small model costs less per Book (about $0.10 to $1.50 for a novel, against about $12 on Google). Bilingual view shows every Paragraph's Translation at once, so Translations are produced per Chapter, before the Reader gets there: the opened Chapter and the next one, in the background. Every result is stored and keyed by Text, Chapter and Native language, so nothing is paid for twice.
