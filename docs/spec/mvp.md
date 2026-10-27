@@ -86,8 +86,11 @@ A calm reader, inspired by Linga, where help is always one gesture away. On the 
 - **One Flutter app** for iOS, Android and web ([ADR 0001](../adr/0001-flutter-for-mobile-and-web.md)). Layout switches by screen width: below a breakpoint is the mobile reader (foreign text + Reveal + Bilingual toggle), above it is the desktop reader (Bilingual view default).
 - **Self-hosted Appwrite** for auth, database, file storage, realtime sync and Dart server functions ([ADR 0002](../adr/0002-self-hosted-appwrite.md)). The app never holds the Claude key.
 - **Ingestion module** (server side): takes an EPUB, URL or raw text and produces Text, then Chapters, then Paragraphs, then Sentences, with stable ids. EPUB uses the spine and table of contents; a URL goes through readability-style extraction; an Article is one Chapter. Sentence splitting is per Reading language (EN, ES, FR, DE, IT, PT; no CJK in the MVP).
-- **Translation module** (server side, Claude): translates a Chapter in Paragraph batches and returns a Translation per Sentence and per Paragraph, aligned by id. Jobs run for the opened Chapter and the next one. Results are cached and keyed by Text, Chapter and Native language ([ADR 0003](../adr/0003-claude-translates-chapters-ahead.md)).
-- **Gloss and Explanation** are on-demand Claude calls with the Sentence as context, cached and keyed by Sentence, word/phrase span and Native language.
+- **Translation module** (server side, Claude): translates a Chapter in Paragraph batches, a few Paragraphs per call plus the neighbouring Paragraphs as read-only context. A rule-based, per-language splitter marks the source Sentences with stable ids at ingestion; Claude returns the Translation grouped by those ids and may merge neighbouring Sentences, which are then shown together. A call that returns the wrong ids is retried once, then falls back to the Paragraph's Translation only. The style is natural, as a native speaker would say it, with no literal mode. Names of people and places stay in the original, headings are translated, and poems are translated line by line. Jobs run for the opened Chapter and the next one. Results are cached, keyed by Text, Chapter and Native language, and keep the model and prompt version they were made with until a Reader asks to regenerate ([ADR 0003](../adr/0003-claude-translates-chapters-ahead.md)).
+- **Models**: a small, cheap Claude model (Haiku) translates Chapters and writes Glosses; a bigger one (Sonnet) writes Explanations. Check current model ids and prices before implementing.
+- **Gloss**: every word is Glossed while its Chapter is translated, so taps are instant. A Gloss holds the meaning in context, the base form and the part of speech, with no example sentence in the MVP. Claude also marks Chunks (idioms, phrasal verbs, split verbs such as German "rief … an", names) as spans over the Sentence, each with its own meaning.
+- **Explanation** is an on-demand call to the bigger model with the Sentence as context, cached and keyed by Sentence and Native language.
+- **Jev for Chunk and Gloss decisions**: choosing real Chunks from candidate phrases, and deciding which words need a Gloss at all (a cost lever), are designed around Jev, TypeSafe's "System One" decision model (typed yes/no and choice answers, no free text). It sits behind a small replaceable "decision step" with a Claude-and-rules fallback. Its accuracy on our six languages is unknown, so the first ticket in this area is an accuracy check (see `docs/research/jev/`).
 - **Sharing rule**: Library Books are translated once per Native language and shared; Uploads and Articles are private to their Reader and never shared ([ADR 0004](../adr/0004-share-translations-only-for-public-domain.md)).
 - **Languages**: Native language is pt-BR or English. Reading languages are EN, ES, FR, DE, IT and PT, minus the Reader's own Native language.
 - **Audio**: device/browser text-to-speech on a word or Sentence; no synced Chapter audio.
@@ -119,5 +122,12 @@ A calm reader, inspired by Linga, where help is always one gesture away. On the 
 ## Further Notes
 
 - Linga (linga.io) is the reference app for feel: calm interface, tap-to-translate, EPUB import. Matheus wants to borrow heavily from it.
-- The cost model assumes a small Claude model; check current model ids and pricing before implementing.
-- The Free book cap bounds the worst case at roughly $2 per new Reader.
+- Cost: earlier estimates ($0.10 to $1.50 per novel) assumed Glosses on tap. Glossing every word with the Chapter makes each Chapter's output much larger, so re-estimate with verified model prices before fixing the Free book cap and the spending guardrails.
+- The Free book cap (about 100k words) still bounds the worst case per new Reader, but not at the earlier figure of roughly $2.
+
+## Open questions
+
+- **What a tap selects by default.** Recommended: Chunk first, so tapping a word inside a Chunk selects the whole Chunk, with handles or a second tap to narrow it to the word. Alternatives: word first with a "part of: …" line, or both meanings stacked in the sheet.
+- **What happens when a Translation looks wrong.** Recommended: a "Looks wrong?" button on a Sentence that regenerates it with the bigger model, replaces the cached one, and has a daily limit. Alternatives: report only, or nothing in the MVP.
+- **Extra tickets** for the work around the features are drafted in [docs/tickets/extra-tickets-draft.md](../tickets/extra-tickets-draft.md) and wait for approval.
+- **Jev access.** It needs a TypeSafe API key held by the project owner and network access to `api.typesafe.ai`; neither key nor results are in the repo.

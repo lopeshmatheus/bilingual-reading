@@ -59,6 +59,10 @@ _Avoid_: Parallel text, rendering
 The meaning of a single word or phrase as it is used in its Sentence.
 _Avoid_: Definition, dictionary entry, lookup
 
+**Chunk**:
+A group of words read as one unit, not always adjacent: an idiom, phrasal verb, split verb or name.
+_Avoid_: Phrase, expression, multi-word unit
+
 **Explanation**:
 A short note in the Native language about why a Sentence is phrased as it is (grammar, idiom, false friend).
 _Avoid_: Grammar tip, AI explain
